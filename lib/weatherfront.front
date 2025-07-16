@@ -1,0 +1,367 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
+class Weatherfront extends StatefulWidget {
+  final void Function(String)? onThemeChanged;
+  const Weatherfront({super.key, this.onThemeChanged});
+  @override
+  State<Weatherfront> createState() => _Weatherfront();
+}
+
+class _Weatherfront extends State<Weatherfront> {
+  ThemeMode _themeMode = ThemeMode.light;
+  TextEditingController _cityController = TextEditingController();
+  String _temperature = '';
+  String _weather = '';
+  String city = '';
+  String? _selectedvalue = 'dark';
+  String _humidity = '';
+  String _pressure = '';
+  String _wind = '';
+  String _iconcode = '';
+  List<Map<String, String>> _nextForecasts = [];
+
+  Future<void> fetchWeather(String city) async {
+    final apikey = '72932122188c5a423cee462e4c37f91d';
+    final urlc = Uri.parse(
+      'https://api.openweathermap.org/data/2.5/weather?q=$city&appid=$apikey&units=metric',
+    );
+    final urlf = Uri.parse(
+      'https://api.openweathermap.org/data/2.5/forecast?q=$city&appid=$apikey&units=metric',
+    );
+    try {
+      final response = await http.get(urlc);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        setState(() {
+          _temperature = '${data['main']['temp']} °C';
+          _weather = data['weather'][0]['description'];
+          _humidity = '${data['main']['humidity']}%';
+          _pressure = '${data['main']['pressure']} hPa';
+          _wind = '${data['wind']['speed']} m/s';
+          _iconcode = data['weather'][0]['icon'];
+        });
+      } else {
+        setState(() {
+          _temperature = '';
+          _weather = 'Failed to load weather';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _temperature = '';
+        _weather = 'error occured:$e';
+      });
+    }
+    try {
+      final responsef = await http.get(urlf);
+      if (responsef.statusCode == 200) {
+        final dataf = jsonDecode(responsef.body);
+        final forecastList = dataf['list'];
+        setState(() {
+          _nextForecasts = [];
+
+          final now = DateTime.now();
+
+          final filteredList = forecastList
+              .where((result) {
+                final forecastTime = DateTime.parse(result['dt_txt']);
+                return forecastTime.isAfter(now);
+              })
+              .take(5);
+
+          for (final result in filteredList) {
+            final time = result['dt_txt'];
+            final temp = result['main']['temp'].toString();
+            final iconcode = result['weather'][0]['icon'];
+            _nextForecasts.add({'time': time, 'temp': temp, 'icon': iconcode});
+          }
+        });
+      }
+    } catch (e) {
+      throw e.toString();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).brightness == Brightness.dark
+          ? Colors.blueGrey[900]
+          : Color.fromARGB(255, 151, 169, 215),
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).brightness == Brightness.dark
+            ? Colors.blueGrey[900]
+            : Color.fromARGB(255, 151, 169, 215),
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 20),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedvalue,
+              items: const [
+                DropdownMenuItem(value: 'light', child: Text('☀️')),
+                DropdownMenuItem(value: 'dark', child: Icon(Icons.dark_mode)),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedvalue = value!;
+                });
+                widget.onThemeChanged?.call(value!);
+              },
+              icon: const SizedBox.shrink(), // Removes the default arrow icon
+              selectedItemBuilder: (context) => const [
+                Icon(Icons.wb_sunny, color: Colors.amber),
+                Icon(Icons.nightlight_round, color: Colors.indigo),
+              ],
+              dropdownColor: Colors.white,
+              isDense: true,
+            ),
+          ),
+        ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 20),
+            child: Material(
+              shape: CircleBorder(),
+              color: Colors.transparent,
+              child: InkWell(
+                splashColor: Colors.blueGrey,
+
+                customBorder: CircleBorder(),
+                onTap: () {
+                  final citycontroller = _cityController.text.trim();
+                  if (citycontroller.isNotEmpty) {}
+                },
+                child: Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Icon(Icons.refresh, color: Colors.black),
+                ),
+              ),
+            ),
+          ),
+        ],
+        title: Center(
+          child: Text(
+            'Weather App',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+      body: Center(
+        child: Column(
+          children: [
+            SizedBox(height: 10),
+            Row(
+              children: [
+                SizedBox(width: 80),
+                SizedBox(
+                  width: 200,
+                  height: 40,
+                  child: TextField(
+                    controller: _cityController,
+                    decoration: InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hint: Text('Enter a city name'),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10),
+                ElevatedButton(
+                  onPressed: () {
+                    FocusScope.of(context).unfocus();
+                    fetchWeather(_cityController.text.trim());
+                  },
+                  child: Text('search'),
+                ),
+              ],
+            ),
+
+            SizedBox(height: 30),
+            if (_temperature.isEmpty && _weather.isEmpty)
+              Center(child: Text('Search for a city to get weather info 🌍')),
+            if (_temperature.isNotEmpty && _weather.isNotEmpty)
+              Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, right: 8),
+                    child: SizedBox(
+                      width: double.infinity,
+
+                      child: Card(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors
+                                  .blueGrey[500] // or any color you like for dark mode
+                            : Color.fromARGB(255, 205, 220, 247),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadiusGeometry.circular(30),
+                        ),
+                        elevation: 10,
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                _temperature,
+                                style: TextStyle(fontSize: 25),
+                              ),
+                            ),
+                            _iconcode.isNotEmpty
+                                ? Image.network(
+                                    'https://openweathermap.org/img/wn/${_iconcode}@2x.png',
+                                    width: 200, // ← set the size here
+                                    height: 100,
+                                  )
+                                : SizedBox.shrink(),
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Text(
+                                _weather,
+                                style: TextStyle(fontSize: 21),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 50,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        'Weather forecast',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: _nextForecasts.map((forecast) {
+                          return SizedBox(
+                            height: 130,
+                            width: 120,
+                            child: Card(
+                              color:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.blueGrey[700]
+                                  : Color.fromARGB(255, 208, 221, 246),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 15),
+                                    child: Text(forecast['time'] ?? ''),
+                                  ),
+                                  forecast['icon'] != null
+                                      ? Image.network(
+                                          'https://openweathermap.org/img/wn/${forecast['icon']}@2x.png',
+                                          width: 50,
+                                          height: 50,
+                                        )
+                                      : Icon(Icons.cloud),
+                                  Text('${forecast['temp']}°C'),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  SizedBox(
+                    height: 30,
+                    child: Padding(
+                      padding: const EdgeInsets.only(),
+                      child: Text(
+                        'Additional Information',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 19,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16.0,
+                      vertical: 8.0,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        Column(
+                          children: [
+                            Icon(Icons.water_drop, size: 40),
+                            SizedBox(height: 4),
+                            Text('Humidity'),
+                            Text(
+                              _humidity,
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            Icon(Icons.air, size: 40),
+                            SizedBox(height: 4),
+                            Text('Wind Speed'),
+                            Text(
+                              _wind,
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            Icon(Icons.umbrella, size: 40),
+                            SizedBox(height: 4),
+                            Text('Pressure'),
+                            Text(
+                              _pressure,
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            if (_weather == 'Failed to load weather')
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.search_off, size: 60, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      "No results found.\nPlease check the city name 🌍❓",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+//ndkVersion = flutter.ndkVersion
