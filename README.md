@@ -19,15 +19,17 @@ A simple Flutter weather application that shows real-time weather conditions and
 
 ## 📱 Screenshots
 
+### 🌤 Home Screen (Light & Dark)
+<img src="assets/screenshots/light.jpeg" width="250"/> <img src="assets/screenshots/dark.jpeg" width="250"/>
 
 
 ## 📂 Folder Structure
 
 - `lib/` – Main application code
   - `main.dart`
-  - `home_screen.dart`
-  - `search_screen.dart`
-  - `weather_model.dart`
+  - `buildweather.dart`
+  - `weatherfront.dart`
+  - `currentcity.dart`
 - `assets/` – Icons and image assets
 
 ## 📦 Getting Started
